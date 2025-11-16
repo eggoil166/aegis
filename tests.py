@@ -8,6 +8,7 @@ import os
 from supabase import create_client, Client
 from dotenv import load_dotenv
 from flask_cors import CORS
+import hashlib
 
 load_dotenv()
 
@@ -112,16 +113,38 @@ def rewrite_prompt(prompt: str):
     data = json.loads(txt)
     return data.get("rewritten", "")
 
+def authenticate_api_key(request):
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None, None
+    raw_key = auth_header.split(" ", 1)[1].strip()
+
+    hashed_key = hashlib.sha256(raw_key.encode()).hexdigest()
+
+    resp = supabase.table("api_keys").select("*").eq("key_hash", hashed_key).single().execute()
+    if resp.data is None:
+        return None, None
+    row = resp.data
+    return row['user_id'], row
+
 app = Flask(__name__)
 CORS(app)
 
 @app.route("/detect", methods=["POST"])
 def detect():
+    user_id, key_row = authenticate_api_key(request)
+    if not user_id:
+        return jsonify({"error": "Invalid or missing API key"}), 401
+
+    supabase.table("api_keys").update({
+        "usage_count": (key_row.get("usage_count") or 0) + 1
+    }).eq("id", key_row["id"]).execute()
     data = request.get_json()
     prompt = data["text"]
     patterns = pattern_detector(prompt)
     clf_label, clf_score = classification_detector(prompt)
     llm_risk, llm_cats = llm_detector(prompt)
+    flagged = (patterns is not None) or (clf_label=='jailbreak') or (llm_risk>30)
     return jsonify({
         "patterns": patterns,
         "classifier": {
@@ -131,11 +154,19 @@ def detect():
         "llm": {
             "risk": llm_risk,
             "cats": llm_cats
-        }
+        },
+        "flagged": flagged
     })
     
 @app.route("/rewrite", methods=["POST"])
 def rewrite():
+    user_id, key_row = authenticate_api_key(request)
+    if not user_id:
+        return jsonify({"error": "Invalid or missing API key"}), 401
+
+    supabase.table("api_keys").update({
+        "usage_count": (key_row.get("usage_count") or 0) + 1
+    }).eq("id", key_row["id"]).execute()
     data = request.get_json()
     prompt = data["text"]
     rewritten = rewrite_prompt(prompt)

@@ -53,47 +53,49 @@ export default function DashboardPage() {
   }
 
   /** Create key → hash → send hash to backend → display raw key once */
-  async function handleCreateKey(e?: React.FormEvent) {
-    e?.preventDefault();
-    if (!user) return;
-    setCreating(true);
-    setNewKeyValue(null);
+  /** Create key → hash → send hash to backend → display raw key once */
+async function handleCreateKey(e?: React.FormEvent) {
+  e?.preventDefault();
+  if (!user) return;
+  setCreating(true);
+  setNewKeyValue(null);
 
-    try {
-      // 1. Generate the raw API key
-      const rawKey = generateKeyHex();
+  try {
+    // 1. Generate the raw API key
+    const rawKey = generateKeyHex();
+    const plain = `sk_${rawKey}_${Date.now().toString(36)}`;
 
-      // 2. Hash it
-      const hashedKey = await hashKeySHA256(rawKey);
+    // 2. Hash it with SHA-256
+    const hashedKey = await hashKeySHA256(plain);
 
-      // 3. Send only the hashed key to backend
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
-      const res = await fetch('/api/keys', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          hashed_key: hashedKey
-        }),
-      });
+    // 3. Send ONLY the hashed key to backend
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    const res = await fetch('/api/keys', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        hashed_key: hashedKey  // Send only the hash!
+      }),
+    });
 
-      const body = await res.json();
-      if (!res.ok) throw new Error(body?.error || 'Create failed');
+    const body = await res.json();
+    if (!res.ok) throw new Error(body?.error || 'Create failed');
 
-      // 4. Show raw key ONCE to user
-      setNewKeyValue(rawKey);
+    // 4. Show raw key ONCE to user (backend never sees this!)
+    setNewKeyValue(plain);
 
-      await fetchKeys();
-    } catch (err: any) {
-      console.error("Error creating API key", err.message ?? err);
-      alert(err?.message ?? "Error creating key");
-    } finally {
-      setCreating(false);
-    }
+    await fetchKeys();
+  } catch (err: any) {
+    console.error("Error creating API key", err.message ?? err);
+    alert(err?.message ?? "Error creating key");
+  } finally {
+    setCreating(false);
   }
+}
 
   async function fetchKeys() {
     if (!user) return;

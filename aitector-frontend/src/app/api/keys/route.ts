@@ -25,58 +25,72 @@ async function getUserFromToken(admin: any, token: string | null) {
 export async function POST(req: Request) {
   const admin = getAdminClient();
   if (!admin) {
-    // eslint-disable-next-line no-console
     console.error('Supabase env vars missing');
     return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 });
   }
 
-  // create a new API key for the authenticated user
   const body = await req.json().catch(() => ({}));
   const token = req.headers.get('authorization')?.replace('Bearer ', '') || body?.access_token;
 
   const user = await getUserFromToken(admin, token || null);
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  // eslint-disable-next-line no-console
-  console.log('Creating API key for user:', user.id, user.email);
+  console.log('Creating API key for user:', user.id);
 
-  // Ensure user exists in public users table (defensive check)
-  const { data: upsertData, error: upsertError } = await admin
-    .from('users')
-    .upsert({ id: user.id, email: user.email }, { onConflict: 'id' })
-    .select();
-
-  if (upsertError) {
-    // eslint-disable-next-line no-console
-    console.error('Failed to ensure user exists - Error:', upsertError.message, upsertError.code);
-    return NextResponse.json({ error: `Failed to ensure user record exists: ${upsertError.message}` }, { status: 500 });
+  // Defensive: ensure the public `users` table has a row for this user id
+  try {
+    const { error: upsertError } = await admin
+      .from('users')
+      .upsert({ id: user.id, email: user.email ?? null }, { onConflict: 'id' });
+    if (upsertError) {
+      console.error('User upsert failed:', upsertError.message, upsertError);
+      return NextResponse.json({ error: 'Failed to ensure user record exists' }, { status: 500 });
+    }
+  } catch (e: any) {
+    console.error('User upsert exception:', e);
+    return NextResponse.json({ error: 'Failed to ensure user record exists' }, { status: 500 });
   }
 
-  // eslint-disable-next-line no-console
-  console.log('User upsert successful:', upsertData);
-
-  // generate plain key
-  const plain = `sk_${crypto.randomBytes(32).toString('hex')}_${Date.now().toString(36)}`;
-
-  // hash via pbkdf2 with salt
-  const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.pbkdf2Sync(plain, salt, 100_000, 64, 'sha512').toString('hex');
-  const key_hash = `${salt}$${hash}`;
-
-  const { data, error } = await admin
-    .from('api_keys')
-    .insert([{ user_id: user.id, key_hash }])
-    .select('id,usage_count,created_at')
-    .single();
-
-  if (error) {
-    // eslint-disable-next-line no-console
-    console.error('Failed to insert API key - Error:', error.message, error.code, 'Details:', error);
-    return NextResponse.json({ error: `Failed to create key: ${error.message}` }, { status: 500 });
+  // Get the provided key (now expecting hashed_key from frontend)
+  const provided = body.hashed_key || (body && (body.key ?? body.plain ?? body.secret)) || null;
+  if (!provided || typeof provided !== 'string') {
+    return NextResponse.json({ error: 'Missing required key in request body' }, { status: 400 });
   }
 
-  // Return created row and the plain key so client can show it once
-  return NextResponse.json({ key: plain, row: data });
+  // SIMPLE SHA-256 HASHING (no salt, no PBKDF2)
+  // If frontend sends hashed_key, use it directly
+  // If frontend sends plain key, hash it here for consistency
+  let key_hash: string;
+  
+  if (body.hashed_key) {
+    // Frontend already sent the SHA-256 hash
+    key_hash = provided;
+  } else {
+    // Frontend sent plain key - hash it with SHA-256
+    const hash = crypto.createHash('sha256');
+    hash.update(provided);
+    key_hash = hash.digest('hex');
+  }
+
+  try {
+    const { data, error } = await admin
+      .from('api_keys')
+      .insert([{ user_id: user.id, key_hash }])
+      .select('id,usage_count,created_at')
+      .single();
+
+    if (error) {
+      console.error('Insert api_keys failed:', error);
+      const isFK = (error && (error.code === '23503' || error.message?.includes('foreign key')));
+      return NextResponse.json({ error: isFK ? 'User record missing for user_id' : `Failed to create key: ${error.message}` }, { status: 500 });
+    }
+
+    // Return success (frontend already has the raw key)
+    return NextResponse.json({ success: true, row: data });
+  } catch (e: any) {
+    console.error('Exception inserting api key:', e);
+    return NextResponse.json({ error: 'Failed to create key' }, { status: 500 });
+  }
 }
 
 export async function GET(req: Request) {
