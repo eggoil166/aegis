@@ -70,15 +70,17 @@ def check_aegis(prompt):
         
         if response.status_code == 200:
             data = response.json()
+            # Return full Aegis response with all fields
             return {
                 'flagged': data.get('flagged', False),
-                'classifier': data.get('classifier', 'unknown'),
                 'patterns': data.get('patterns', []),
-                'risk_score': data.get('llm', {}).get('confidence', 0) * 100 if data.get('llm') else 0
+                'classifier': data.get('classifier', {}),
+                'llm': data.get('llm', {}),
+                'risk_score': data.get('llm', {}).get('risk', 0) if data.get('llm') else 0
             }
         else:
             print(f"Aegis API error: {response.status_code}")
-            return {'flagged': False, 'error': 'API error'}
+            return {'flagged': False, 'error': f'API error: {response.status_code}'}
     except Exception as e:
         print(f"Aegis check failed: {e}")
         # Continue without Aegis if it's not available
@@ -128,8 +130,9 @@ def chat():
         'aegis': {
             'checked': True,
             'flagged': aegis_result.get('flagged', False),
-            'classifier': aegis_result.get('classifier', 'unknown'),
             'patterns': aegis_result.get('patterns', []),
+            'classifier': aegis_result.get('classifier', {}),
+            'llm': aegis_result.get('llm', {}),
             'risk_score': aegis_result.get('risk_score', 0),
             'error': aegis_result.get('error')
         }
@@ -137,4 +140,4 @@ def chat():
 
     
 if __name__=="__main__":
-    app.run(debug=True, port=3000)
+    app.run(debug=True, port=3001)

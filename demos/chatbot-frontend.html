@@ -320,7 +320,7 @@
     </div>
 
     <script>
-        const API_URL = 'http://localhost:3000/chat';
+        const API_URL = 'http://localhost:3001/chat';
         const chatMessages = document.getElementById('chatMessages');
         const userInput = document.getElementById('userInput');
         const sendButton = document.getElementById('sendButton');
@@ -384,34 +384,88 @@
             else if (riskScore > 30) riskClass = 'risk-medium';
             
             let html = `
+                <div style="font-weight: 700; margin-bottom: 8px; color: #667eea;">🛡️ Aegis Detection Report</div>
                 <div class="detail-row">
-                    <span class="label">Status:</span>
+                    <span class="label">Overall Status:</span>
                     <span class="value">${aegisData.flagged ? '🚫 BLOCKED' : '✅ SAFE'}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">Classifier:</span>
-                    <span class="value">${aegisData.classifier}</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">Risk Score:</span>
-                    <span class="value ${riskClass}">${riskScore.toFixed(1)}/100</span>
                 </div>
             `;
             
+            // Patterns Detection
             if (aegisData.patterns && aegisData.patterns.length > 0) {
                 html += `
                     <div class="detail-row">
-                        <span class="label">Patterns:</span>
-                        <span class="value">${aegisData.patterns.join(', ')}</span>
+                        <span class="label">Regex Patterns:</span>
+                        <span class="value" style="color: #dc3545;">${aegisData.patterns.join(', ')}</span>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="detail-row">
+                        <span class="label">Regex Patterns:</span>
+                        <span class="value" style="color: #28a745;">None detected</span>
                     </div>
                 `;
             }
             
-            if (aegisData.error) {
+            // ML Classifier
+            if (aegisData.classifier) {
+                const classifierData = aegisData.classifier;
+                const label = classifierData.label || classifierData;
+                const score = classifierData.score || 0;
+                const isJailbreak = label === 'jailbreak' || label === 'INJECTION';
+                
                 html += `
                     <div class="detail-row">
-                        <span class="label">Note:</span>
-                        <span class="value" style="color: #999;">Aegis unavailable (${aegisData.error})</span>
+                        <span class="label">ML Classifier:</span>
+                        <span class="value" style="color: ${isJailbreak ? '#dc3545' : '#28a745'};">
+                            ${label} (${(score * 100).toFixed(1)}% confidence)
+                        </span>
+                    </div>
+                `;
+            }
+            
+            // LLM Analysis
+            if (aegisData.llm) {
+                const llmData = aegisData.llm;
+                const risk = llmData.risk || 0;
+                const cats = llmData.cats || [];
+                
+                let llmRiskClass = 'risk-low';
+                if (risk > 70) llmRiskClass = 'risk-high';
+                else if (risk > 30) llmRiskClass = 'risk-medium';
+                
+                html += `
+                    <div class="detail-row">
+                        <span class="label">LLM Risk Score:</span>
+                        <span class="value ${llmRiskClass}">${risk.toFixed(1)}/100</span>
+                    </div>
+                `;
+                
+                if (cats && cats.length > 0) {
+                    html += `
+                        <div class="detail-row">
+                            <span class="label">LLM Categories:</span>
+                            <span class="value">${cats.join(', ')}</span>
+                        </div>
+                    `;
+                }
+            }
+            
+            // Aggregated Risk Score
+            html += `
+                <div class="detail-row" style="border-top: 2px solid #667eea; margin-top: 8px; padding-top: 8px;">
+                    <span class="label">Final Risk Score:</span>
+                    <span class="value ${riskClass}" style="font-weight: 700;">${riskScore.toFixed(1)}/100</span>
+                </div>
+            `;
+            
+            // Error handling
+            if (aegisData.error) {
+                html += `
+                    <div class="detail-row" style="margin-top: 8px;">
+                        <span class="label">⚠️ Note:</span>
+                        <span class="value" style="color: #999; font-size: 11px;">${aegisData.error}</span>
                     </div>
                 `;
             }
