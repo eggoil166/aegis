@@ -32,7 +32,7 @@ Aegis is a full-stack security platform that combines regex pattern matching, Hu
 
 ---
 
-## Demo
+## In-App Snapshots
 
 ![Playground](./assets/playground.png)
 *Playground - Test detection in real-time*
@@ -152,7 +152,7 @@ PATTERN_RULES = [
     (r"(?:###|@@@|%%%).*system", "delimiter_injection"),
     (r"(?i)base64", "encoding_trick"),
     (r"(?:<\s*script|</\s*script>)", "xss_injection"),
-    # ... 45+ more patterns
+
 ]
 ```
 
