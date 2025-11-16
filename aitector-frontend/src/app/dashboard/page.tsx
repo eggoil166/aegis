@@ -395,7 +395,7 @@ function StatsModal({ keyRow, onClose }: { keyRow: ApiKeyRow; onClose: () => voi
       <div className="w-full max-w-lg rounded-xs bg-white/10 backdrop-blur-xl border border-white/10 p-6 shadow-2xl">
         <div className="flex items-start justify-between">
           <h3 data-magnetic className="text-lg font-medium">API Key Stats</h3>
-          <Button data-magnetic variant="outline" onClick={onClose}>
+          <Button data-magnetic className="hover:bg-neutral-600 transition-colors duration-300" onClick={onClose}>
             Close
           </Button>
         </div>
