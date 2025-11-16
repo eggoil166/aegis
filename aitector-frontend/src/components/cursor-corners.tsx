@@ -17,7 +17,7 @@ export function CursorCorners() {
   const cursorY = useMotionValue(0);
   const [hoveredElement, setHoveredElement] = useState<DOMRect | null>(null);
 
-  const springConfig = { damping: 25, stiffness: 400 };
+  const springConfig = { damping: 50, stiffness: 750 };
   
   // Four corners relative to cursor or element
   const topLeftX = useSpring(cursorX, springConfig);

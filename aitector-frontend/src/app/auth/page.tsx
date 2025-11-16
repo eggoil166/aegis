@@ -74,11 +74,12 @@ export default function AuthPage() {
           </label>
 
           <div className="flex items-center gap-3">
-            <Button type="submit" disabled={sending} size="lg">
+            <Button type="submit" disabled={sending} size="lg" className="bg-purple-800 hover:bg-purple-600 text-black font-semibold transition-colors duration-300">
               {sending ? "Sending…" : "Send magic link"}
             </Button>
-            <Button className="text-white"
-              
+            <Button
+              type="button"
+              className="text-white hover:bg-neutral-700 transition-colors duration-300"
               onClick={() => router.push("/")}
               size="lg"
             >

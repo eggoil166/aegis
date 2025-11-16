@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useSupabaseUser } from "@/lib/useSupabaseAuth";
+import Image from "next/image";
 
 export function Navbar() {
   return (
@@ -14,7 +15,10 @@ export function Navbar() {
       className="fixed top-0 left-0 right-0 z-50 w-full border-b border-white/10 bg-black/40 backdrop-blur-md"
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <a href="/" data-magnetic className="text-xl font-semibold text-white">Aegis</a>
+        <a href="/" data-magnetic className="flex items-center gap-3 text-xl font-semibold text-white">
+          <Image src="/full.png" alt="Aegis Logo" width={32} height={32} className="object-contain" />
+          Aegis
+        </a>
 
         <div className="flex items-center gap-4">
           <a data-magnetic href="/docs" className="text-neutral-300 hover:text-white">

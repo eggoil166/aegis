@@ -11,6 +11,9 @@ const lexendDeca = Lexend_Deca({
 export const metadata: Metadata = {
   title: "Aegis",
   description: "Detect and prevent AI jailbreak attempts with advanced multi-layer detection",
+  icons: {
+    icon: "/small.png",
+  },
 };
 
 export default function RootLayout({
@@ -20,6 +23,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="bg-black">
+      <head>
+        <link rel="icon" href="/small.png" type="image/png" />
+      </head>
       <body
         className={`${lexendDeca.variable} antialiased bg-black font-sans`}
       >
