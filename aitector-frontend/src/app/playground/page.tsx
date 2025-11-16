@@ -17,7 +17,7 @@ export default function PlaygroundPage() {
 
     try {
 
-      const response = await fetch("/detect", {
+      const response = await fetch("http://localhost:5000/detect", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
