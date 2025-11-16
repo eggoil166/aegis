@@ -4,7 +4,12 @@ from dotenv import load_dotenv
 import json
 from transformers import pipeline
 from flask import Flask, request, jsonify
-from pydantic import BaseModel
+import os
+from supabase import create_client, Client
+
+url = os.environ.get("SUPABASE_URL")
+key = os.environ.get("SUPABASE_KEY")
+supabase = create_client(url, key)
 
 load_dotenv()
 

@@ -21,8 +21,12 @@ export default function DashboardPage() {
   const [keys, setKeys] = useState<ApiKeyRow[]>([]);
   const [creating, setCreating] = useState(false);
   const [newKeyValue, setNewKeyValue] = useState<string | null>(null);
+  const [showRevokeModal, setShowRevokeModal] = useState<{ id: string } | null>(null);
   const [statsKey, setStatsKey] = useState<ApiKeyRow | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  // NEW: copied toast state
+  const [showCopiedToast, setShowCopiedToast] = useState(false);
 
   useEffect(() => {
     if (!loading && user) fetchKeys();
@@ -59,7 +63,6 @@ export default function DashboardPage() {
       setNewKeyValue(body.key);
       await fetchKeys();
     } catch (err: any) {
-      // eslint-disable-next-line no-console
       console.error("Error creating API key", err.message ?? err);
       alert(err?.message ?? "Error creating key");
     } finally {
@@ -78,7 +81,6 @@ export default function DashboardPage() {
       if (!res.ok) throw new Error(body?.error || 'Fetch failed');
       setKeys(body.data || []);
     } catch (err: any) {
-      // eslint-disable-next-line no-console
       console.error("Error loading keys", err.message ?? err);
     } finally {
       setRefreshing(false);
@@ -86,30 +88,28 @@ export default function DashboardPage() {
   }
 
   async function handleDeleteKey(id: string) {
-    if (!confirm("Revoke this API key? This cannot be undone.")) return;
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
       const res = await fetch(`/api/keys/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error || 'Delete failed');
+      setNewKeyValue(null);
       await fetchKeys();
     } catch (err: any) {
-      // eslint-disable-next-line no-console
       console.error("Error deleting key", err.message ?? err);
     }
+    setShowRevokeModal(null);
   }
 
+  // UPDATED: copy + toast
   async function handleCopy(text: string) {
     try {
       await navigator.clipboard.writeText(text);
-      // eslint-disable-next-line no-console
-      console.debug("Copied to clipboard");
-      alert("Copied API key to clipboard");
+      setShowCopiedToast(true);
+      setTimeout(() => setShowCopiedToast(false), 1500);
     } catch (e) {
-      // eslint-disable-next-line no-console
       console.error("Clipboard error", e);
-      alert("Copy failed");
     }
   }
 
@@ -122,7 +122,30 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-black text-amber-900 p-8">
+    <main className="min-h-screen bg-black text-amber-900 p-8 relative">
+
+      {/* Inline Fade Animation */}
+      <style>
+        {`
+          @keyframes fadeInOut {
+            0% { opacity: 0; transform: translate(-50%, -10px); }
+            15% { opacity: 1; transform: translate(-50%, 0); }
+            85% { opacity: 1; transform: translate(-50%, 0); }
+            100% { opacity: 0; transform: translate(-50%, -10px); }
+          }
+          .toast-fade {
+            animation: fadeInOut 1.5s ease-in-out forwards;
+          }
+        `}
+      </style>
+
+      {showCopiedToast && (
+        <div className="toast-fade fixed top-4 left-1/2 -translate-x-1/2 z-50 
+                        bg-neutral-800 text-white text-sm px-4 py-2 rounded shadow-lg">
+          Copied!
+        </div>
+      )}
+
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-semibold">Dashboard</h1>
@@ -143,7 +166,14 @@ export default function DashboardPage() {
           <p className="mt-2 text-sm text-neutral-400">Create API keys for programmatic access. Keep them secret.</p>
 
           {newKeyValue && (
-            <div className="mt-4 p-4 border border-green-600 rounded bg-black/40">
+            <div className="mt-4 p-4 border border-green-600 rounded bg-black/40 relative">
+              <button
+                className="absolute top-2 right-2 text-neutral-400 hover:text-white text-lg"
+                aria-label="Close"
+                onClick={() => setNewKeyValue(null)}
+              >
+                ×
+              </button>
               <p className="text-sm text-neutral-300">New API key (save this now — it will not be shown again):</p>
               <div className="mt-2 flex items-center gap-3">
                 <code className="break-all bg-neutral-800 px-3 py-2 rounded">{newKeyValue}</code>
@@ -153,7 +183,7 @@ export default function DashboardPage() {
           )}
 
           <form className="mt-4 flex gap-3" onSubmit={handleCreateKey}>
-            <Button type="submit" disabled={creating}>
+            <Button type="submit" variant="outline" disabled={creating}>
               {creating ? "Creating…" : "Create API Key"}
             </Button>
             <Button type="button" variant="outline" onClick={(e) => { e.preventDefault(); fetchKeys(); }} disabled={refreshing}>
@@ -194,7 +224,7 @@ export default function DashboardPage() {
                         <Button size="sm" variant="outline" onClick={() => setStatsKey(k)}>
                           Stats
                         </Button>
-                        <Button size="sm" variant="destructive" onClick={() => handleDeleteKey(k.id)}>
+                        <Button size="sm" variant="destructive" onClick={() => setShowRevokeModal({ id: k.id })}>
                           Revoke
                         </Button>
                       </div>
@@ -208,6 +238,19 @@ export default function DashboardPage() {
 
         {statsKey && (
           <StatsModal keyRow={statsKey} onClose={() => setStatsKey(null)} />
+        )}
+
+        {showRevokeModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+            <div className="w-full max-w-sm rounded bg-neutral-900 p-6">
+              <h3 className="text-lg font-medium mb-4">Revoke API Key?</h3>
+              <p className="text-sm text-neutral-300 mb-6">This cannot be undone. Are you sure you want to revoke this API key?</p>
+              <div className="flex gap-3 justify-end">
+                <Button variant="outline" onClick={() => setShowRevokeModal(null)}>Cancel</Button>
+                <Button variant="destructive" onClick={() => handleDeleteKey(showRevokeModal.id)}>Revoke</Button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </main>
@@ -243,9 +286,7 @@ function StatsModal({ keyRow, onClose }: { keyRow: ApiKeyRow; onClose: () => voi
         if (!res.ok) throw new Error(body?.error || 'Stats fetch failed');
         if (!mounted) return;
         setStats({ usage_count: body.usage_count ?? 0, last_used_at: body.last_used_at ?? null });
-      } catch (e) {
-        // ignore
-      }
+      } catch (e) {}
     }
     load();
     return () => {
@@ -265,7 +306,9 @@ function StatsModal({ keyRow, onClose }: { keyRow: ApiKeyRow; onClose: () => voi
 
         <div className="mt-4">
           <p className="mt-2 text-sm text-neutral-300">ID: {keyRow.id}</p>
-          <p className="mt-2 text-sm text-neutral-300">Created: {formatDate(keyRow.created_at)}</p>
+          <p className="mt-2 text-sm text-neutral-300">{`Created: ${formatDate(
+            keyRow.created_at
+          )}`}</p>
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-4">
