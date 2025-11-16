@@ -19,8 +19,10 @@ print(url, key)
 supabase = create_client(url, key)
 
 PATTERN_RULES = [
-    (r"ignore (all )?previous instructions", "system_override"),
-    (r"disregard (the )?(system|above)", "system_override"),
+    (r"(?i)ignore (all )?(prior|previous|initial) (instructions|prompts)", "system_override"),
+    (r"(?i)disregard (all )?(prior|previous|initial) (instructions|prompts)", "system_override"),
+    (r"(?i)forget (all )?(prior|previous|initial) (instructions|prompts)", "system_override"),
+    (r"(?i)override (system|original|initial) (instructions|prompts)", "system_override"),
     (r"you are now (free|jailbroken|not an ai)", "role_break"),
     (r"(?:###|@@@|%%%).*system", "delimiter_injection"),
     (r"(?i)simulate (?:being )?an? (unrestricted|malicious) ai", "role_break"),
@@ -30,7 +32,13 @@ PATTERN_RULES = [
     (r"(?s)```.*?```.*?```", "multi_code_block"),
     (r"(?i)base64", "encoding_trick"),
     (r"[^\x00-\x7F]{3,}", "unicode_trick"),
-    (r"(?i)(system|assistant|developer)\s*:", "role_override")
+    (r"(?i)(system|assistant|developer)\s*:", "role_override"),
+    (r"(?i)char\(|chr\(", "char_encoding"),
+    (r"(?i)\\\\x[0-9a-f]{2}", "hex_escape"),
+    (r"(?i)&#x?[0-9a-f]+;", "html_entity"),
+    (r"(?i)fromCharCode", "js_encoding"),
+    (r"[\u200b-\u200f\u202a-\u202e]", "invisible_chars"),
+    (r"(?i)(ignore|disregard).{0,20}(ignore|disregard)", "repetitive_override"),
 ]
 
 def SAFETY_PROMPT(prompt: str):
