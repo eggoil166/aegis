@@ -33,6 +33,7 @@ export function Hero() {
           <Button
             size="lg"
             className="text-lg px-8 py-6 bg-purple-700 hover:bg-purple-600 text-black font-semibold shadow-[0_0_15px_rgba(180,0,255,0.5)]"
+            onClick={() => window.location.href = '/playground'}
           >
             Try the Playground
           </Button>

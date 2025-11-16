@@ -14,7 +14,7 @@ export function Navbar() {
       className="fixed top-0 left-0 right-0 z-50 w-full border-b border-white/10 bg-black/40 backdrop-blur-md"
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <span className="text-xl font-semibold">Jailbreak AI</span>
+        <span className="text-xl font-semibold">Aegis</span>
 
         <div className="flex items-center gap-4">
           <a href="#features" className="text-neutral-300 hover:text-white">
