@@ -812,41 +812,6 @@ heroku config:set SUPABASE_SERVICE_KEY=your_key
 
 ---
 
-## Performance
-
-### Latency Benchmarks
-
-| Operation | Average | P95 | P99 |
-|-----------|---------|-----|-----|
-| Regex Only | 5ms | 8ms | 12ms |
-| + ML Classifier | 150ms | 200ms | 250ms |
-| + LLM Analysis | 300ms | 450ms | 600ms |
-| Prompt Rewrite (1 iter) | 1000ms | 1500ms | 2000ms |
-| Rewrite (5 iters) | 4500ms | 6000ms | 8000ms |
-
-### Optimization Strategies
-
-1. **Parallel Layer Execution**
-   - Run Regex, ML, and LLM concurrently
-   - Aggregate results after all complete
-   - Current: Sequential (room for improvement)
-
-2. **ML Model Quantization**
-   - Use `torch.quantization` for faster inference
-   - Reduces model size by 4x
-   - Minimal accuracy loss
-
-3. **Gemini Streaming**
-   - Enable streaming responses for lower TTFB
-   - Display partial results to users
-   - Improves perceived performance
-
-4. **Response Caching**
-   - Cache detection results for identical prompts
-   - Use Redis with 1-hour TTL
-   - Reduces load on Gemini API
-
----
 
 ## Technologies
 
@@ -928,28 +893,4 @@ MIT License
 
 ---
 
-## Roadmap
-
-### Planned Features
-
-- [ ] Real-time WebSocket API for streaming detection
-- [ ] Custom pattern rule editor in dashboard
-- [ ] Multi-language support (Spanish, French, Chinese)
-- [ ] Slack/Discord integration for alerts
-- [ ] Enterprise SSO (SAML, OAuth)
-- [ ] Model fine-tuning on custom datasets
-- [ ] Prompt sanitization confidence scoring
-- [ ] A/B testing framework for detection strategies
-- [ ] GraphQL API alongside REST
-- [ ] Mobile app (React Native)
-
-### Research Directions
-
-- [ ] Adversarial robustness testing
-- [ ] Zero-shot jailbreak detection
-- [ ] Multimodal injection detection (images + text)
-- [ ] Federated learning for privacy-preserving model updates
-
----
-
-Built with ❤️ for Technica 2025
+Built for Technica 2025
