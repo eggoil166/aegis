@@ -6,7 +6,7 @@ EMBEDDING_MODEL = 'hf.co/CompendiumLabs/bge-base-en-v1.5-gguf'
 LANGUAGE_MODEL = 'llama3.2:3b'
 
 # Aegis API Configuration
-AEGIS_API_URL = 'http://localhost:3000/detect'  # Your Aegis backend
+AEGIS_API_URL = 'http://localhost:5000/detect'  # Your Aegis backend
 AEGIS_API_KEY = 'sk_b9f553bf2edc661c578f747c8a378e8e78154a08e635508e87eb834b48cd878b_mi1w1sx7'  # Replace with actual API key
 
 dataset = []
@@ -64,7 +64,7 @@ def check_aegis(prompt):
                 'Authorization': f'Bearer {AEGIS_API_KEY}',
                 'Content-Type': 'application/json'
             },
-            json={'prompt': prompt},
+            json={'text': prompt},  # Aegis expects 'text', not 'prompt'
             timeout=5
         )
         
@@ -85,24 +85,10 @@ def check_aegis(prompt):
         return {'flagged': False, 'error': str(e)}
 
 def receive(query):
-    # First, check with Aegis for jailbreak attempts
-    aegis_result = check_aegis(query)
+    # Note: Aegis check is now done in the chat() route
+    # This function just generates the response (checking is external)
     
-    # If flagged as jailbreak, return warning
-    if aegis_result.get('flagged', False):
-        patterns = aegis_result.get('patterns', [])
-        risk_score = aegis_result.get('risk_score', 0)
-        
-        warning_msg = f"⚠️ Security Alert: Your message has been flagged as a potential security threat "
-        warning_msg += f"(Risk Score: {risk_score:.0f}/100). "
-        
-        if patterns:
-            warning_msg += f"Detected patterns: {', '.join(patterns)}. "
-        
-        warning_msg += "Please rephrase your question in a straightforward manner."
-        return warning_msg
-    
-    # If clean, proceed with normal FAQ retrieval
+    # Proceed with normal FAQ retrieval
     retrieved = retrieve(query)
     info_block = "\n\n".join([chunk for chunk, _ in retrieved])
     stream = ollama.chat(
@@ -129,10 +115,24 @@ def confirmation():
 @app.route("/chat", methods=['GET'])
 def chat():
     query = request.args.get('query')
+    
+    # Check with Aegis first and get the result
+    aegis_result = check_aegis(query)
+    
+    # Get the chatbot response
     response = receive(query)
+    
     return jsonify({
         'status': 'OK',
-        'response': response
+        'response': response,
+        'aegis': {
+            'checked': True,
+            'flagged': aegis_result.get('flagged', False),
+            'classifier': aegis_result.get('classifier', 'unknown'),
+            'patterns': aegis_result.get('patterns', []),
+            'risk_score': aegis_result.get('risk_score', 0),
+            'error': aegis_result.get('error')
+        }
     })
 
     

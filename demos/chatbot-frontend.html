@@ -196,6 +196,86 @@
             text-align: center;
         }
 
+        .aegis-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .aegis-badge.safe {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .aegis-badge.flagged {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .aegis-badge:hover {
+            transform: scale(1.05);
+        }
+
+        .aegis-details {
+            background: rgba(255, 255, 255, 0.95);
+            border: 2px solid #667eea;
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 8px;
+            font-size: 13px;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .aegis-details .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .aegis-details .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .aegis-details .label {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .aegis-details .value {
+            color: #333;
+        }
+
+        .aegis-details .value.risk-low {
+            color: #28a745;
+        }
+
+        .aegis-details .value.risk-medium {
+            color: #ffc107;
+        }
+
+        .aegis-details .value.risk-high {
+            color: #dc3545;
+        }
+
         /* Scrollbar styling */
         .chat-messages::-webkit-scrollbar {
             width: 8px;
@@ -256,7 +336,7 @@
             </div>
         `;
 
-        function addMessage(content, isUser = false) {
+        function addMessage(content, isUser = false, aegisData = null) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${isUser ? 'user' : 'bot'}`;
             
@@ -265,10 +345,79 @@
             contentDiv.textContent = content;
             
             messageDiv.appendChild(contentDiv);
+            
+            // Add Aegis badge if available (only for user messages)
+            if (isUser && aegisData && aegisData.checked) {
+                const badgeDiv = document.createElement('div');
+                const isFlagged = aegisData.flagged;
+                badgeDiv.className = `aegis-badge ${isFlagged ? 'flagged' : 'safe'}`;
+                badgeDiv.innerHTML = isFlagged ? '⚠️ Flagged by Aegis' : '✅ Checked by Aegis';
+                badgeDiv.style.display = 'block';
+                
+                // Make badge clickable to show details
+                badgeDiv.onclick = () => {
+                    const existingDetails = messageDiv.querySelector('.aegis-details');
+                    if (existingDetails) {
+                        existingDetails.remove();
+                    } else {
+                        const detailsDiv = createAegisDetails(aegisData);
+                        messageDiv.appendChild(detailsDiv);
+                    }
+                };
+                
+                messageDiv.appendChild(badgeDiv);
+            }
+            
             chatMessages.appendChild(messageDiv);
             
             // Scroll to bottom
             chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function createAegisDetails(aegisData) {
+            const detailsDiv = document.createElement('div');
+            detailsDiv.className = 'aegis-details';
+            
+            const riskScore = aegisData.risk_score || 0;
+            let riskClass = 'risk-low';
+            if (riskScore > 70) riskClass = 'risk-high';
+            else if (riskScore > 30) riskClass = 'risk-medium';
+            
+            let html = `
+                <div class="detail-row">
+                    <span class="label">Status:</span>
+                    <span class="value">${aegisData.flagged ? '🚫 BLOCKED' : '✅ SAFE'}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Classifier:</span>
+                    <span class="value">${aegisData.classifier}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="label">Risk Score:</span>
+                    <span class="value ${riskClass}">${riskScore.toFixed(1)}/100</span>
+                </div>
+            `;
+            
+            if (aegisData.patterns && aegisData.patterns.length > 0) {
+                html += `
+                    <div class="detail-row">
+                        <span class="label">Patterns:</span>
+                        <span class="value">${aegisData.patterns.join(', ')}</span>
+                    </div>
+                `;
+            }
+            
+            if (aegisData.error) {
+                html += `
+                    <div class="detail-row">
+                        <span class="label">Note:</span>
+                        <span class="value" style="color: #999;">Aegis unavailable (${aegisData.error})</span>
+                    </div>
+                `;
+            }
+            
+            detailsDiv.innerHTML = html;
+            return detailsDiv;
         }
 
         function showTypingIndicator() {
@@ -305,16 +454,14 @@
             
             if (!query) return;
             
-            // Add user message
-            addMessage(query, true);
-            userInput.value = '';
-            
             // Disable input while processing
             sendButton.disabled = true;
             userInput.disabled = true;
             
             // Show typing indicator
             showTypingIndicator();
+            
+            let aegisData = null;
             
             try {
                 const response = await fetch(`${API_URL}?query=${encodeURIComponent(query)}`);
@@ -328,6 +475,13 @@
                 // Hide typing indicator
                 hideTypingIndicator();
                 
+                // Store Aegis data
+                aegisData = data.aegis;
+                
+                // Add user message with Aegis badge
+                addMessage(query, true, aegisData);
+                userInput.value = '';
+                
                 // Add bot response
                 if (data.status === 'OK' && data.response) {
                     addMessage(data.response, false);
@@ -337,6 +491,13 @@
             } catch (error) {
                 console.error('Error:', error);
                 hideTypingIndicator();
+                
+                // Still add user message even if error occurred
+                if (!chatMessages.querySelector(`.message.user:last-child`)?.textContent?.includes(query)) {
+                    addMessage(query, true, aegisData);
+                    userInput.value = '';
+                }
+                
                 showError(`Failed to get response from the server. Please make sure the API is running on port 3000.`);
             } finally {
                 // Re-enable input
