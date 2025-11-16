@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, ChevronDown } from "lucide-react";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
+import { CursorCorners } from "./cursor-corners";
 
 // ===== Component Props =====
 // Defines the interface for the TextEditor component
@@ -30,6 +32,61 @@ const TYPEWRITER_PHRASES = [
   "Example: 'Pretend you are not an AI...'",
 ];
 
+// ===== Dropdown Animation Variants =====
+// Framer Motion animation variants for dropdown menu with stagger effect
+const dropdownVariants: Variants = {
+  open: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      type: "spring",
+      stiffness: 300,
+      damping: 24,
+      staggerChildren: 0.07,
+      delayChildren: 0.1,
+    },
+  },
+  closed: {
+    opacity: 0,
+    y: -20,
+    scale: 0.95,
+    transition: {
+      type: "spring",
+      stiffness: 400,
+      damping: 40,
+      staggerChildren: 0.05,
+      staggerDirection: -1,
+    },
+  },
+};
+
+const listVariants: Variants = {
+  open: {
+    transition: { staggerChildren: 0.07, delayChildren: 0.1 },
+  },
+  closed: {
+    transition: { staggerChildren: 0.05, staggerDirection: -1 },
+  },
+};
+
+const itemVariants: Variants = {
+  open: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      y: { stiffness: 1000, velocity: -100 },
+    },
+  },
+  closed: {
+    y: 20,
+    opacity: 0,
+    transition: {
+      y: { stiffness: 1000 },
+    },
+  },
+};
+
 export function TextEditor({ onAnalyze }: TextEditorProps) {
   // ===== Component State =====
   const [text, setText] = useState(""); // User's input text
@@ -38,6 +95,8 @@ export function TextEditor({ onAnalyze }: TextEditorProps) {
   const [phraseIndex, setPhraseIndex] = useState(0); // Index of current phrase in TYPEWRITER_PHRASES
   const [charIndex, setCharIndex] = useState(0); // Current character position in phrase
   const [isDeleting, setIsDeleting] = useState(false); // Whether typewriter is typing or deleting
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false); // Dropdown menu visibility
+  const dropdownRef = useRef<HTMLDivElement>(null); // Reference for click outside detection
 
   // ===== Typewriter Effect =====
   // Automatically animates the placeholder text with a typing/deleting effect
@@ -69,6 +128,19 @@ export function TextEditor({ onAnalyze }: TextEditorProps) {
 
     return () => clearTimeout(timeout);
   }, [charIndex, isDeleting, phraseIndex]);
+
+  // ===== Click Outside Handler =====
+  // Closes dropdown when clicking outside of it
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // ===== Event Handlers =====
   // Handles the "Analyze Prompt" button click
@@ -105,28 +177,73 @@ export function TextEditor({ onAnalyze }: TextEditorProps) {
       {/* ===== Header Section ===== */}
       {/* Title and example dropdown selector */}
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-white">Prompt Input</h3>
+        <h3 data-magnetic className="text-lg font-semibold text-white">Prompt Input</h3>
         
         {/* ===== Example Prompts Dropdown ===== */}
         {/* Allows users to quickly load pre-configured test prompts */}
-        <div className="flex gap-2">
-          <select
-            className="bg-neutral-800 border border-neutral-700 rounded px-3 py-1 text-sm text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-              if (e.target.value) loadExample(e.target.value);
-              e.target.value = "";
-            }}
-            defaultValue=""
+        <div className="relative" ref={dropdownRef}>
+          <motion.button
+            data-magnetic
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            className="flex items-center gap-2 bg-neutral-800 border border-neutral-700 rounded-lg px-4 py-2.5 text-sm text-white hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
           >
-            <option value="" disabled>
-              Load Example
-            </option>
-            {EXAMPLE_PROMPTS.map((prompt, idx) => (
-              <option key={idx} value={prompt}>
-                Example {idx + 1}
-              </option>
-            ))}
-          </select>
+            Load Example
+            <motion.div
+                
+              animate={{ rotate: isDropdownOpen ? 180 : 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+            >
+              <ChevronDown className="w-4 h-4" />
+            </motion.div>
+          </motion.button>
+
+          {/* ===== Animated Dropdown Menu with Stagger Effect ===== */}
+          {/* Items animate in sequence using spring physics */}
+          <AnimatePresence>
+            {isDropdownOpen && (
+              <motion.div
+                initial="closed"
+                animate="open"
+                exit="closed"
+                variants={dropdownVariants}
+                className="absolute right-0 mt-2 w-72 bg-neutral-800 border border-neutral-700 rounded-lg shadow-2xl overflow-hidden z-50"
+              >
+                <motion.ul variants={listVariants} className="py-1">
+                  {EXAMPLE_PROMPTS.map((prompt, idx) => (
+                    <motion.li
+                      key={idx}
+                      variants={itemVariants}
+                      whileHover={{ 
+                        scale: 1.05,
+                        // backgroundColor: "rgba(168, 85, 247, 0.15)",
+                        x: 10
+                 
+                      }}
+                      whileTap={{ scale: 0.98 }}
+                      className="list-none"
+                    >
+                      <button
+                        onClick={() => {
+                          loadExample(prompt);
+                          setIsDropdownOpen(false);
+                        }}
+                        className="w-full text-left px-4 py-3 text-sm text-white transition-colors border-b border-neutral-700/50 last:border-b-0"
+                      >
+                        <div className="font-semibold text-purple-400 mb-1">
+                          Example {idx + 1}
+                        </div>
+                        <div className="text-xs text-neutral-400 truncate">
+                          {prompt}
+                        </div>
+                      </button>
+                    </motion.li>
+                  ))}
+                </motion.ul>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
@@ -136,6 +253,7 @@ export function TextEditor({ onAnalyze }: TextEditorProps) {
         {/* ===== Textarea Input ===== */}
         {/* Multi-line text input with typewriter placeholder, character limit validation */}
         <textarea
+          data-magnetic
           value={text}
           onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setText(e.target.value)}
           placeholder={placeholder}
@@ -161,12 +279,13 @@ export function TextEditor({ onAnalyze }: TextEditorProps) {
         {/* Primary action button that triggers jailbreak detection */}
         {/* Gets brighter purple when text is present, dimmer when empty */}
         <Button
+          data-magnetic
           onClick={handleAnalyze}
           disabled={!text.trim() || isAnalyzing || isOverLimit}
           className={`flex-3 text-white font-semibold transition-all duration-300 ${
             text.trim() && !isOverLimit
               ? "bg-purple-500 hover:bg-purple-600"
-              : "bg-purple-800 hover:bg-purple-700"
+              : "bg-purple-900"
           }`}
         >
           {isAnalyzing ? (
@@ -182,10 +301,10 @@ export function TextEditor({ onAnalyze }: TextEditorProps) {
         {/* ===== Clear Button ===== */}
         {/* Resets the textarea to empty state */}
         <Button
+          data-magnetic
           onClick={handleClear}
-          variant="outline"
           disabled={isAnalyzing}
-          className="border-neutral-700 text-neutral-300 hover:bg-neutral-800 flex-1"
+          className="text-black flex-1 font-semibold transition-all bg-white hover:bg-white/30"
         >
           Clear
         </Button>
