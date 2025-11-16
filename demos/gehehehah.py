@@ -1,8 +1,13 @@
 import ollama
 import json
+import requests
 
 EMBEDDING_MODEL = 'hf.co/CompendiumLabs/bge-base-en-v1.5-gguf'
 LANGUAGE_MODEL = 'llama3.2:3b'
+
+# Aegis API Configuration
+AEGIS_API_URL = 'http://localhost:3000/detect'  # Your Aegis backend
+AEGIS_API_KEY = 'sk_b9f553bf2edc661c578f747c8a378e8e78154a08e635508e87eb834b48cd878b_mi1w1sx7'  # Replace with actual API key
 
 dataset = []
 with open('faq.json', 'r') as file:
@@ -50,7 +55,54 @@ def SYS_PROMPT(info_block):
         {info_block}
         """
 
+def check_aegis(prompt):
+    """Check if prompt is a jailbreak attempt using Aegis API"""
+    try:
+        response = requests.post(
+            AEGIS_API_URL,
+            headers={
+                'Authorization': f'Bearer {AEGIS_API_KEY}',
+                'Content-Type': 'application/json'
+            },
+            json={'prompt': prompt},
+            timeout=5
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            return {
+                'flagged': data.get('flagged', False),
+                'classifier': data.get('classifier', 'unknown'),
+                'patterns': data.get('patterns', []),
+                'risk_score': data.get('llm', {}).get('confidence', 0) * 100 if data.get('llm') else 0
+            }
+        else:
+            print(f"Aegis API error: {response.status_code}")
+            return {'flagged': False, 'error': 'API error'}
+    except Exception as e:
+        print(f"Aegis check failed: {e}")
+        # Continue without Aegis if it's not available
+        return {'flagged': False, 'error': str(e)}
+
 def receive(query):
+    # First, check with Aegis for jailbreak attempts
+    aegis_result = check_aegis(query)
+    
+    # If flagged as jailbreak, return warning
+    if aegis_result.get('flagged', False):
+        patterns = aegis_result.get('patterns', [])
+        risk_score = aegis_result.get('risk_score', 0)
+        
+        warning_msg = f"⚠️ Security Alert: Your message has been flagged as a potential security threat "
+        warning_msg += f"(Risk Score: {risk_score:.0f}/100). "
+        
+        if patterns:
+            warning_msg += f"Detected patterns: {', '.join(patterns)}. "
+        
+        warning_msg += "Please rephrase your question in a straightforward manner."
+        return warning_msg
+    
+    # If clean, proceed with normal FAQ retrieval
     retrieved = retrieve(query)
     info_block = "\n\n".join([chunk for chunk, _ in retrieved])
     stream = ollama.chat(
