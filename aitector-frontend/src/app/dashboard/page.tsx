@@ -121,6 +121,23 @@ async function handleCreateKey(e?: React.FormEvent) {
     }
   }
 
+  async function handleFetchAnalytics(keyId: string) {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      const res = await fetch(`/api/analytics/${keyId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error || 'Analytics fetch failed');
+      console.log('Analytics for key', keyId, ':', body);
+      alert(JSON.stringify(body, null, 2));
+    } catch (err: any) {
+      console.error("Error fetching analytics", err.message ?? err);
+      alert(err?.message ?? "Error fetching analytics");
+    }
+  }
+
   async function handleDeleteKey(id: string) {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -281,6 +298,14 @@ async function handleCreateKey(e?: React.FormEvent) {
                         </Button>
                         <Button data-magnetic className="hover:bg-neutral-600 transition-colors duration-300" size="sm" onClick={() => setStatsKey(k)}>
                           Stats
+                        </Button>
+                        <Button 
+                          data-magnetic 
+                          className="hover:bg-neutral-600 transition-colors duration-300" 
+                          size="sm" 
+                          onClick={() => handleFetchAnalytics(k.id)}
+                        >
+                          Analytics
                         </Button>
                         <Button
                           data-magnetic
