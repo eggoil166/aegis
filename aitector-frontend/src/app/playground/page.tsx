@@ -22,7 +22,7 @@ export default function PlaygroundPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "API-Key": apiKey,
+          "Authorization": "Bearer " + apiKey,
         },
         body: JSON.stringify({ text }),
       });
