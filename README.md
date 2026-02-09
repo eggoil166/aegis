@@ -15,8 +15,7 @@
 
 Multi-layer AI jailbreak detection system. Protect your AI applications from prompt injection attacks with advanced pattern matching, machine learning, and LLM-powered analysis.
 
-Aegis is a full-stack security platform that combines regex pattern matching, HuggingFace transformer models, and Google Gemini AI to detect and prevent jailbreak attempts in real-time. The system provides both detection and prompt rewriting capabilities through a modern, glassmorphic web interface.
-
+Demo - https://www.youtube.com/watch?v=7WD2ltKzzRM
 ---
 
 ## Features
